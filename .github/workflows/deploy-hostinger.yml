@@ -1,0 +1,41 @@
+name: Deploy to Hostinger via FTP
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: FTP deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The Airtable config ships in the page source (accepted tradeoff — the
+      # token is scoped to one base); secrets just keep it out of git history.
+      - name: Inject Airtable config
+        run: |
+          sed -i "s|PASTE_AIRTABLE_TOKEN|${{ secrets.AIRTABLE_TOKEN }}|" index.html
+          sed -i "s|PASTE_BASE_ID|${{ secrets.AIRTABLE_BASE_ID }}|" index.html
+
+      # Static site, no build step — upload the repo files directly.
+      - name: FTP deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          local-dir: ./
+          protocol: ftp
+          port: 21
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            README.md
+            .gitignore

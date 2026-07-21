@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movie Night — Submit &amp; Vote</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍿</text></svg>">
+<style>
+  :root {
+    --bg: #f6f5fb;
+    --card: #ffffff;
+    --ink: #1f2033;
+    --muted: #6b6d85;
+    --accent: #6d5bd0;
+    --accent-soft: #efecfb;
+    --border: #e4e2f0;
+    --radius: 14px;
+    --shadow: 0 2px 10px rgba(31, 32, 51, 0.07);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header {
+    background: linear-gradient(120deg, #4f46e5, #7c3aed, #db2777);
+    color: #fff;
+    padding: 40px 20px 48px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 8px; font-size: 2rem; letter-spacing: -0.02em; }
+  header p { margin: 0 auto; max-width: 520px; opacity: 0.9; line-height: 1.5; }
+  main { max-width: 860px; margin: -24px auto 60px; padding: 0 16px; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  .panel h2 { margin: 0 0 12px; font-size: 1.05rem; }
+  label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin: 10px 0 4px; }
+  input[type=text] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: #fbfaff;
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > div { flex: 1 1 220px; }
+  button {
+    font: inherit;
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 18px;
+    cursor: pointer;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    margin-top: 14px;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:disabled { opacity: 0.55; cursor: default; filter: none; }
+  .banner {
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    font-size: 0.9rem;
+    display: none;
+  }
+  .banner.info { display: block; background: var(--accent-soft); color: var(--accent); }
+  .banner.error { display: block; background: #fdecec; color: #b3261e; }
+  .list-head { display: flex; align-items: baseline; justify-content: space-between; margin: 26px 0 12px; }
+  .list-head h2 { margin: 0; font-size: 1.15rem; }
+  .list-head button { margin: 0; padding: 6px 12px; background: var(--accent-soft); color: var(--accent); font-size: 0.85rem; }
+  .movie {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .votebox { text-align: center; min-width: 76px; }
+  .votebox .count { font-size: 1.6rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .votebox .unit { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .votebox button { margin-top: 8px; padding: 7px 14px; font-size: 0.85rem; width: 100%; }
+  .votebox button.voted { background: #e8f6ee; color: #1a7f4b; }
+  .movie h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .meta { font-size: 0.82rem; color: var(--muted); }
+  .note { margin: 8px 0 0; font-size: 0.9rem; line-height: 1.45; }
+  .voters { margin-top: 8px; font-size: 0.8rem; color: var(--muted); }
+  .voters span { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 9px; margin: 0 4px 4px 0; display: inline-block; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  @media (max-width: 560px) {
+    header h1 { font-size: 1.6rem; }
+    .movie { flex-direction: column-reverse; }
+    .votebox { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .votebox button { margin-top: 0; width: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍿 Movie Night</h1>
+  <p>Suggest a movie and vote for the ones you want to watch. Just leave your name — no accounts, we trust each other.</p>
+</header>
+
+<main>
+  <div class="panel">
+    <label for="f-name">Your name</label>
+    <input type="text" id="f-name" placeholder="Who are you?" maxlength="60" autocomplete="name">
+  </div>
+
+  <div class="panel">
+    <h2>Suggest a movie</h2>
+    <div class="row">
+      <div>
+        <label for="f-title">Movie title</label>
+        <input type="text" id="f-title" placeholder="e.g. The Grand Budapest Hotel" maxlength="120">
+      </div>
+      <div>
+        <label for="f-note">Why this one? <span style="font-weight:400">(optional)</span></label>
+        <input type="text" id="f-note" placeholder="Sell it in one line" maxlength="200">
+      </div>
+    </div>
+    <button id="btn-submit">Add movie</button>
+  </div>
+
+  <div id="banner" class="banner"></div>
+
+  <div class="list-head">
+    <h2>The ballot</h2>
+    <button id="btn-refresh">↻ Refresh</button>
+  </div>
+  <div id="list"><div class="empty">Loading…</div></div>
+</main>
+
+<script>
+// Movies and votes live in Airtable. The token is public by design (it is
+// scoped to create/read on this one base); secrets just keep it out of git.
+const AIRTABLE = {
+  token: "PASTE_AIRTABLE_TOKEN",
+  baseId: "PASTE_BASE_ID",
+  moviesTable: "Movies",
+  votesTable: "Votes"
+};
+const DEMO = AIRTABLE.token.startsWith("PASTE_");
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// Remember the name and which movies this browser already voted for.
+// Purely a courtesy — nothing is enforced.
+$("f-name").value = localStorage.getItem("mv_name") || "";
+$("f-name").addEventListener("change", () => localStorage.setItem("mv_name", $("f-name").value.trim()));
+const votedFor = new Set(JSON.parse(localStorage.getItem("mv_voted") || "[]"));
+
+let movies = [];            // [{id, title, submittedBy, note, createdTime}]
+let votesByMovie = {};      // movieId -> [voterName]
+
+function api(table) {
+  return `https://api.airtable.com/v0/${AIRTABLE.baseId}/${encodeURIComponent(table)}`;
+}
+const headers = {
+  "Authorization": `Bearer ${AIRTABLE.token}`,
+  "Content-Type": "application/json"
+};
+
+async function fetchAll(table) {
+  const records = [];
+  let offset = "";
+  do {
+    const res = await fetch(`${api(table)}?pageSize=100${offset ? "&offset=" + offset : ""}`, { headers });
+    if (!res.ok) throw new Error(`Airtable ${res.status} on ${table}`);
+    const data = await res.json();
+    records.push(...(data.records || []));
+    offset = data.offset;
+  } while (offset);
+  return records;
+}
+
+function banner(kind, msg) {
+  const el = $("banner");
+  el.className = "banner" + (kind ? " " + kind : "");
+  el.textContent = msg || "";
+}
+
+async function load() {
+  if (DEMO) {
+    banner("info", "Demo mode — Airtable is not configured yet, so nothing is saved. Deploys inject the real credentials.");
+    movies = [
+      { id: "demo1", title: "The Grand Budapest Hotel", submittedBy: "Eddy", note: "Pure eye candy.", createdTime: "2026-01-01" },
+      { id: "demo2", title: "Spirited Away", submittedBy: "Ana", note: "", createdTime: "2026-01-02" }
+    ];
+    votesByMovie = { demo1: ["Ana", "Leo"], demo2: ["Eddy"] };
+    render();
+    return;
+  }
+  try {
+    const [movieRecs, voteRecs] = await Promise.all([
+      fetchAll(AIRTABLE.moviesTable),
+      fetchAll(AIRTABLE.votesTable)
+    ]);
+    movies = movieRecs.map(r => ({
+      id: r.id,
+      title: r.fields["title"] || "(untitled)",
+      submittedBy: r.fields["submittedBy"] || "anonymous",
+      note: r.fields["note"] || "",
+      createdTime: r.createdTime
+    }));
+    votesByMovie = {};
+    voteRecs.forEach(r => {
+      const mid = r.fields["movieId"];
+      if (!mid) return;
+      (votesByMovie[mid] = votesByMovie[mid] || []).push(r.fields["voter"] || "anonymous");
+    });
+    banner("", "");
+    render();
+  } catch (err) {
+    banner("error", "Couldn't reach Airtable — check the connection and hit Refresh. (" + err.message + ")");
+  }
+}
+
+function render() {
+  const list = $("list");
+  if (!movies.length) {
+    list.innerHTML = '<div class="empty">No movies yet — be the first to suggest one!</div>';
+    return;
+  }
+  const sorted = [...movies].sort((a, b) =>
+    (votesByMovie[b.id]?.length || 0) - (votesByMovie[a.id]?.length || 0) ||
+    (a.createdTime > b.createdTime ? 1 : -1));
+  list.innerHTML = sorted.map(m => {
+    const voters = votesByMovie[m.id] || [];
+    const voted = votedFor.has(m.id);
+    return `
+      <div class="movie">
+        <div class="votebox">
+          <div><div class="count">${voters.length}</div><div class="unit">vote${voters.length === 1 ? "" : "s"}</div></div>
+          <button data-vote="${esc(m.id)}" class="${voted ? "voted" : ""}" ${voted ? "disabled" : ""}>
+            ${voted ? "✓ Voted" : "▲ Vote"}
+          </button>
+        </div>
+        <div style="flex:1">
+          <h3>${esc(m.title)}</h3>
+          <div class="meta">suggested by ${esc(m.submittedBy)}</div>
+          ${m.note ? `<p class="note">${esc(m.note)}</p>` : ""}
+          ${voters.length ? `<div class="voters">${voters.map(v => `<span>${esc(v)}</span>`).join("")}</div>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+  list.querySelectorAll("[data-vote]").forEach(btn =>
+    btn.addEventListener("click", () => vote(btn.dataset.vote, btn)));
+}
+
+function requireName() {
+  const name = $("f-name").value.trim();
+  if (!name) {
+    banner("error", "Add your name first — that's the whole honor system!");
+    $("f-name").focus();
+    return null;
+  }
+  localStorage.setItem("mv_name", name);
+  return name;
+}
+
+async function submitMovie() {
+  const name = requireName();
+  if (!name) return;
+  const title = $("f-title").value.trim();
+  if (!title) { banner("error", "The movie needs a title."); $("f-title").focus(); return; }
+  const note = $("f-note").value.trim();
+  const btn = $("btn-submit");
+  btn.disabled = true;
+  try {
+    if (!DEMO) {
+      const res = await fetch(api(AIRTABLE.moviesTable), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ records: [{ fields: { "title": title, "submittedBy": name, "note": note } }] })
+      });
+      if (!res.ok) throw new Error(`Airtable ${res.status}`);
+    }
+    $("f-title").value = "";
+    $("f-note").value = "";
+    banner("info", `"${title}" is on the ballot. 🎬`);
+    await load();
+  } catch (err) {
+    banner("error", "Couldn't save the movie — try again. (" + err.message + ")");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function vote(movieId, btn) {
+  const name = requireName();
+  if (!name) return;
+  btn.disabled = true;
+  try {
+    if (!DEMO) {
+      const movie = movies.find(m => m.id === movieId);
+      const res = await fetch(api(AIRTABLE.votesTable), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ records: [{ fields: {
+          "voter": name,
+          "movieId": movieId,
+          "movieTitle": movie ? movie.title : ""
+        } }] })
+      });
+      if (!res.ok) throw new Error(`Airtable ${res.status}`);
+    }
+    votedFor.add(movieId);
+    localStorage.setItem("mv_voted", JSON.stringify([...votedFor]));
+    (votesByMovie[movieId] = votesByMovie[movieId] || []).push(name);
+    render();
+  } catch (err) {
+    btn.disabled = false;
+    banner("error", "Couldn't save the vote — try again. (" + err.message + ")");
+  }
+}
+
+$("btn-submit").addEventListener("click", submitMovie);
+$("btn-refresh").addEventListener("click", load);
+$("f-title").addEventListener("keydown", e => { if (e.key === "Enter") submitMovie(); });
+$("f-note").addEventListener("keydown", e => { if (e.key === "Enter") submitMovie(); });
+
+load();
+setInterval(() => { if (!DEMO) load(); }, 60000); // keep counts fresh for everyone
+</script>
+</body>
+</html>
