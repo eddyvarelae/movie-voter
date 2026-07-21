@@ -2,6 +2,9 @@
 
 Everyone can suggest a movie and vote for the ones they want to watch. No auth —
 people just leave their name (honor system, votes aren't enforced or limited).
+The browser you voted or submitted from can also unvote, edit its movie's
+description anytime, and edit the title within 60 s of submitting (tracked in
+localStorage — a different browser can't).
 
 Same stack as [leangap-mentors](https://github.com/eddyvarelae/leangap-mentors):
 a single static `index.html` (vanilla JS + CSS, no build step), data in Airtable,

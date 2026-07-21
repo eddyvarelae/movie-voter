@@ -95,7 +95,11 @@
   .votebox .unit { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .votebox button { margin-top: 8px; padding: 7px 14px; font-size: 0.85rem; width: 100%; }
   .votebox button.voted { background: #e8f6ee; color: #1a7f4b; }
+  .votebox button.voted:not(:disabled):hover { background: #fdecec; color: #b3261e; filter: none; }
   .movie h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .editbtn { margin: 0 0 0 8px; padding: 2px 8px; font-size: 0.72rem; background: var(--accent-soft); color: var(--accent); border-radius: 6px; }
+  .editform button { margin-right: 8px; }
+  .editform .cancel { background: var(--accent-soft); color: var(--accent); }
   .meta { font-size: 0.82rem; color: var(--muted); }
   .note { margin: 8px 0 0; font-size: 0.9rem; line-height: 1.45; }
   .voters { margin-top: 8px; font-size: 0.8rem; color: var(--muted); }
@@ -162,10 +166,19 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 // Remember the name and which movies this browser already voted for.
-// Purely a courtesy — nothing is enforced.
+// Purely a courtesy — nothing is enforced. We keep the Airtable record id of
+// each vote so the same machine can unvote (delete that exact record).
 $("f-name").value = localStorage.getItem("mv_name") || "";
 $("f-name").addEventListener("change", () => localStorage.setItem("mv_name", $("f-name").value.trim()));
-const votedFor = new Set(JSON.parse(localStorage.getItem("mv_voted") || "[]"));
+const votedRec = JSON.parse(localStorage.getItem("mv_votes") || "{}"); // movieId -> vote record id
+// legacy format (pre-unvote): array of movieIds with no record id — voted, but not removable
+JSON.parse(localStorage.getItem("mv_voted") || "[]").forEach(id => { if (!(id in votedRec)) votedRec[id] = null; });
+function saveVotes() { localStorage.setItem("mv_votes", JSON.stringify(votedRec)); }
+const mine = JSON.parse(localStorage.getItem("mv_mine") || "{}"); // movieId -> true (submitted from this machine)
+function saveMine() { localStorage.setItem("mv_mine", JSON.stringify(mine)); }
+let editingId = null;
+const TITLE_EDIT_WINDOW_MS = 60000;
+const canEditTitle = m => (Date.now() - new Date(m.createdTime).getTime()) < TITLE_EDIT_WINDOW_MS;
 
 let movies = [];            // [{id, title, submittedBy, note, createdTime}]
 let votesByMovie = {};      // movieId -> [voterName]
@@ -244,25 +257,49 @@ function render() {
     (a.createdTime > b.createdTime ? 1 : -1));
   list.innerHTML = sorted.map(m => {
     const voters = votesByMovie[m.id] || [];
-    const voted = votedFor.has(m.id);
+    const voted = m.id in votedRec;
+    const removable = voted && votedRec[m.id]; // legacy votes have no record id, can't be undone
+    let body;
+    if (editingId === m.id) {
+      const titleOpen = canEditTitle(m);
+      body = `
+        <div style="flex:1" class="editform">
+          <label>Movie title${titleOpen ? "" : " (locked — editable only for 60s after submitting)"}</label>
+          <input type="text" id="e-title" value="${esc(m.title)}" maxlength="120" ${titleOpen ? "" : "disabled"}>
+          <label>Why this one?</label>
+          <input type="text" id="e-note" value="${esc(m.note)}" maxlength="200">
+          <button data-save="${esc(m.id)}">Save</button>
+          <button data-cancel class="cancel">Cancel</button>
+        </div>`;
+    } else {
+      body = `
+        <div style="flex:1">
+          <h3>${esc(m.title)}${mine[m.id] ? `<button class="editbtn" data-edit="${esc(m.id)}">✎ Edit</button>` : ""}</h3>
+          <div class="meta">suggested by ${esc(m.submittedBy)}</div>
+          ${m.note ? `<p class="note">${esc(m.note)}</p>` : ""}
+          ${voters.length ? `<div class="voters">${voters.map(v => `<span>${esc(v)}</span>`).join("")}</div>` : ""}
+        </div>`;
+    }
     return `
       <div class="movie">
         <div class="votebox">
           <div><div class="count">${voters.length}</div><div class="unit">vote${voters.length === 1 ? "" : "s"}</div></div>
-          <button data-vote="${esc(m.id)}" class="${voted ? "voted" : ""}" ${voted ? "disabled" : ""}>
+          <button data-vote="${esc(m.id)}" class="${voted ? "voted" : ""}" ${voted && !removable ? "disabled" : ""}
+            title="${voted ? (removable ? "Click to remove your vote" : "Voted on this device") : ""}">
             ${voted ? "✓ Voted" : "▲ Vote"}
           </button>
         </div>
-        <div style="flex:1">
-          <h3>${esc(m.title)}</h3>
-          <div class="meta">suggested by ${esc(m.submittedBy)}</div>
-          ${m.note ? `<p class="note">${esc(m.note)}</p>` : ""}
-          ${voters.length ? `<div class="voters">${voters.map(v => `<span>${esc(v)}</span>`).join("")}</div>` : ""}
-        </div>
+        ${body}
       </div>`;
   }).join("");
   list.querySelectorAll("[data-vote]").forEach(btn =>
-    btn.addEventListener("click", () => vote(btn.dataset.vote, btn)));
+    btn.addEventListener("click", () => (btn.dataset.vote in votedRec) ? unvote(btn.dataset.vote, btn) : vote(btn.dataset.vote, btn)));
+  list.querySelectorAll("[data-edit]").forEach(btn =>
+    btn.addEventListener("click", () => { editingId = btn.dataset.edit; render(); }));
+  list.querySelectorAll("[data-save]").forEach(btn =>
+    btn.addEventListener("click", () => saveEdit(btn.dataset.save, btn)));
+  list.querySelectorAll("[data-cancel]").forEach(btn =>
+    btn.addEventListener("click", () => { editingId = null; render(); }));
 }
 
 function requireName() {
@@ -292,6 +329,9 @@ async function submitMovie() {
         body: JSON.stringify({ records: [{ fields: { "title": title, "submittedBy": name, "note": note } }] })
       });
       if (!res.ok) throw new Error(`Airtable ${res.status}`);
+      const data = await res.json();
+      mine[data.records[0].id] = true;
+      saveMine();
     }
     $("f-title").value = "";
     $("f-note").value = "";
@@ -309,6 +349,7 @@ async function vote(movieId, btn) {
   if (!name) return;
   btn.disabled = true;
   try {
+    let recId = "demo";
     if (!DEMO) {
       const movie = movies.find(m => m.id === movieId);
       const res = await fetch(api(AIRTABLE.votesTable), {
@@ -321,14 +362,64 @@ async function vote(movieId, btn) {
         } }] })
       });
       if (!res.ok) throw new Error(`Airtable ${res.status}`);
+      recId = (await res.json()).records[0].id;
     }
-    votedFor.add(movieId);
-    localStorage.setItem("mv_voted", JSON.stringify([...votedFor]));
+    votedRec[movieId] = recId;
+    saveVotes();
     (votesByMovie[movieId] = votesByMovie[movieId] || []).push(name);
     render();
   } catch (err) {
     btn.disabled = false;
     banner("error", "Couldn't save the vote — try again. (" + err.message + ")");
+  }
+}
+
+async function unvote(movieId, btn) {
+  btn.disabled = true;
+  try {
+    if (!DEMO) {
+      const res = await fetch(`${api(AIRTABLE.votesTable)}/${votedRec[movieId]}`, { method: "DELETE", headers });
+      if (!res.ok && res.status !== 404) throw new Error(`Airtable ${res.status}`); // 404: already gone, fine
+    }
+    delete votedRec[movieId];
+    saveVotes();
+    const arr = votesByMovie[movieId] || [];
+    const i = arr.indexOf($("f-name").value.trim());
+    if (i >= 0) arr.splice(i, 1);
+    render();
+    if (!DEMO) load(); // reconcile with the server in the background
+  } catch (err) {
+    btn.disabled = false;
+    banner("error", "Couldn't remove the vote — try again. (" + err.message + ")");
+  }
+}
+
+async function saveEdit(movieId, btn) {
+  const m = movies.find(x => x.id === movieId);
+  if (!m) return;
+  const titleOpen = canEditTitle(m);
+  const title = titleOpen ? $("e-title").value.trim() : m.title;
+  const note = $("e-note").value.trim();
+  if (!title) { banner("error", "The movie needs a title."); return; }
+  btn.disabled = true;
+  try {
+    const fields = { "note": note };
+    if (titleOpen) fields["title"] = title;
+    if (!DEMO) {
+      const res = await fetch(`${api(AIRTABLE.moviesTable)}/${movieId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ fields })
+      });
+      if (!res.ok) throw new Error(`Airtable ${res.status}`);
+    }
+    m.title = title;
+    m.note = note;
+    editingId = null;
+    render();
+  } catch (err) {
+    btn.disabled = false;
+    banner("error", "Couldn't save the changes — try again. (" + err.message + ")");
   }
 }
 
@@ -338,7 +429,7 @@ $("f-title").addEventListener("keydown", e => { if (e.key === "Enter") submitMov
 $("f-note").addEventListener("keydown", e => { if (e.key === "Enter") submitMovie(); });
 
 load();
-setInterval(() => { if (!DEMO) load(); }, 60000); // keep counts fresh for everyone
+setInterval(() => { if (!DEMO && editingId === null) load(); }, 60000); // keep counts fresh; don't clobber an open edit form
 </script>
 </body>
 </html>
