@@ -13,14 +13,14 @@ deployed to Hostinger over FTP by GitHub Actions on every push to `main`.
 
 Create a base with **two tables** (names must match exactly):
 
-**Movies**
+**movies**
 | Field | Type |
 |---|---|
 | `title` | Single line text |
 | `submittedBy` | Single line text |
 | `note` | Single line text |
 
-**Votes**
+**votes**
 | Field | Type |
 |---|---|
 | `voter` | Single line text |
