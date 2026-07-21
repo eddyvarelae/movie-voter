@@ -11,7 +11,9 @@ deployed to Hostinger over FTP by GitHub Actions on every push to `main`.
 
 ### 1. Airtable base
 
-Create a base with **two tables** (names must match exactly):
+Create a base with **two tables**. The code references them by table id
+(`AIRTABLE.moviesTable` / `AIRTABLE.votesTable` in `index.html`), so update those
+ids if you recreate the base. Field names must match exactly:
 
 **movies**
 | Field | Type |
