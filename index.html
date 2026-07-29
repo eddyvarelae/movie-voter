@@ -127,6 +127,13 @@
   .modal .intro img.face { width: 72px; height: 72px; aspect-ratio: 1 / 1; border-radius: 50%; object-fit: cover; object-position: top; display: block; margin-bottom: 10px; }
   .modal .intro h3 { margin: 0 0 12px; font-size: 1.2rem; }
   .modal .intro .who { font-size: 0.82rem; color: var(--accent); font-weight: 600; margin-bottom: 2px; }
+  .modal .intro .winner {
+    display: inline-block; margin-bottom: 12px;
+    background: linear-gradient(120deg, #fef3c7, #fde68a); color: #92400e;
+    border-radius: 999px; padding: 4px 12px;
+    font-size: 0.8rem; font-weight: 700;
+  }
+  .modal .intro .votetag { display: inline-block; margin-bottom: 12px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 4px 12px; font-size: 0.8rem; font-weight: 700; }
   .modal .intro p { font-size: 0.9rem; line-height: 1.55; margin: 0 0 10px; }
   .modal .close {
     position: absolute; top: 10px; right: 10px; margin: 0;
@@ -360,6 +367,9 @@ function openCard(movieId) {
   const m = movies.find(x => x.id === movieId);
   const x = m && extrasFor(m);
   if (!x) return;
+  const count = votesByMovie[m.id]?.length || 0;
+  const top = Math.max(...movies.map(mv => votesByMovie[mv.id]?.length || 0));
+  const leader = count > 0 && count === top;
   const overlay = document.createElement("div");
   overlay.className = "overlay";
   overlay.innerHTML = `
@@ -369,6 +379,9 @@ function openCard(movieId) {
         <img class="face" src="${esc(x.intro.photo)}" alt="${esc(x.intro.name)}">
         <div class="who">Suggested by ${esc(x.intro.name)}</div>
         <h3>${esc(m.title)}</h3>
+        ${leader
+          ? `<span class="winner">🏆 Winner · ${count} vote${count === 1 ? "" : "s"}</span>`
+          : `<span class="votetag">${count} vote${count === 1 ? "" : "s"}</span>`}
         ${x.intro.text.split("\n\n").map(p => `<p>${esc(p)}</p>`).join("")}
       </div>
       <button class="close" aria-label="Close">✕</button>
