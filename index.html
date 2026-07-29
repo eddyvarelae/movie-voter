@@ -124,10 +124,9 @@
   }
   .modal img.poster { width: 46%; object-fit: cover; display: block; }
   .modal .intro { padding: 24px 24px 20px; overflow-y: auto; flex: 1; }
-  .modal .intro img.face { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; display: block; margin-bottom: 10px; }
-  .modal .intro h3 { margin: 0 0 2px; font-size: 1.2rem; }
+  .modal .intro img.face { width: 72px; height: 72px; aspect-ratio: 1 / 1; border-radius: 50%; object-fit: cover; object-position: top; display: block; margin-bottom: 10px; }
+  .modal .intro h3 { margin: 0 0 12px; font-size: 1.2rem; }
   .modal .intro .who { font-size: 0.82rem; color: var(--accent); font-weight: 600; margin-bottom: 2px; }
-  .modal .intro .role { font-size: 0.78rem; color: var(--muted); margin-bottom: 12px; }
   .modal .intro p { font-size: 0.9rem; line-height: 1.55; margin: 0 0 10px; }
   .modal .close {
     position: absolute; top: 10px; right: 10px; margin: 0;
@@ -226,8 +225,7 @@ const EXTRAS = {
     intro: {
       photo: "assets/marianna.png",
       name: "Marianna",
-      role: "Copywriter & Email Specialist · Galicia, Spain 🇪🇸 · from Greece 🇬🇷",
-      text: "Every Leangap email you've received? She wrote it. Getting people to click and say yes is literally her job — and tonight she says yes to Howl. A wizard's walking castle, a cursed hat-maker, and the most romantic anti-war film Ghibli ever made.\n\nOff the clock you'll find her rolling dice in DnD 🐉, cuddling her cat Capitan, and deep in romantasy — so yes, she has strong feelings about Howl's hair."
+      text: "A wizard's walking castle, a cursed hat-maker, and the most romantic anti-war film Ghibli ever made. Two hours of pure comfort — you'll want to live in every frame."
     }
   }
 };
@@ -371,7 +369,6 @@ function openCard(movieId) {
         <img class="face" src="${esc(x.intro.photo)}" alt="${esc(x.intro.name)}">
         <div class="who">Suggested by ${esc(x.intro.name)}</div>
         <h3>${esc(m.title)}</h3>
-        <div class="role">${esc(x.intro.role)}</div>
         ${x.intro.text.split("\n\n").map(p => `<p>${esc(p)}</p>`).join("")}
       </div>
       <button class="close" aria-label="Close">✕</button>
