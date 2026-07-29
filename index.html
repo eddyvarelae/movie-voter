@@ -105,6 +105,40 @@
   .voters { margin-top: 8px; font-size: 0.8rem; color: var(--muted); }
   .voters span { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 9px; margin: 0 4px 4px 0; display: inline-block; }
   .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  .movie.openable { cursor: pointer; }
+  .movie.openable:hover { border-color: var(--accent); }
+  .openhint { font-size: 0.72rem; color: var(--accent); margin-top: 8px; }
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(31, 32, 51, 0.55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: 0 12px 40px rgba(31, 32, 51, 0.35);
+    display: flex; gap: 0;
+    max-width: 720px; width: 100%; max-height: 90vh;
+    overflow: hidden; position: relative;
+  }
+  .modal img.poster { width: 46%; object-fit: cover; display: block; }
+  .modal .intro { padding: 24px 24px 20px; overflow-y: auto; flex: 1; }
+  .modal .intro img.face { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; display: block; margin-bottom: 10px; }
+  .modal .intro h3 { margin: 0 0 2px; font-size: 1.2rem; }
+  .modal .intro .who { font-size: 0.82rem; color: var(--accent); font-weight: 600; margin-bottom: 2px; }
+  .modal .intro .role { font-size: 0.78rem; color: var(--muted); margin-bottom: 12px; }
+  .modal .intro p { font-size: 0.9rem; line-height: 1.55; margin: 0 0 10px; }
+  .modal .close {
+    position: absolute; top: 10px; right: 10px; margin: 0;
+    background: rgba(31, 32, 51, 0.45); color: #fff;
+    border-radius: 50%; width: 32px; height: 32px; padding: 0;
+    font-size: 1rem; line-height: 1;
+  }
+  @media (max-width: 560px) {
+    .modal { flex-direction: column; overflow-y: auto; }
+    .modal img.poster { width: 100%; max-height: 48vh; }
+  }
   @media (max-width: 560px) {
     header h1 { font-size: 1.6rem; }
     .movie { flex-direction: column-reverse; }
@@ -183,6 +217,22 @@ const canEditTitle = m => (Date.now() - new Date(m.createdTime).getTime()) < TIT
 let movies = [];            // [{id, title, submittedBy, note, createdTime}]
 let votesByMovie = {};      // movieId -> [voterName]
 
+// Per-movie extras shown when a card is opened: poster + an intro from the
+// person who suggested it. Keyed by lowercased title so it survives record
+// re-creation; assets live in ./assets and deploy with the page.
+const EXTRAS = {
+  "howl's moving castle": {
+    poster: "assets/howls-poster.jpg",
+    intro: {
+      photo: "assets/marianna.png",
+      name: "Marianna",
+      role: "Copywriter & Email Specialist · Galicia, Spain 🇪🇸 · from Greece 🇬🇷",
+      text: "Every Leangap email you've received? She wrote it. Getting people to click and say yes is literally her job — and tonight she says yes to Howl. A wizard's walking castle, a cursed hat-maker, and the most romantic anti-war film Ghibli ever made.\n\nOff the clock you'll find her rolling dice in DnD 🐉, cuddling her cat Capitan, and deep in romantasy — so yes, she has strong feelings about Howl's hair."
+    }
+  }
+};
+const extrasFor = m => EXTRAS[(m.title || "").trim().toLowerCase()];
+
 function api(table) {
   return `https://api.airtable.com/v0/${AIRTABLE.baseId}/${encodeURIComponent(table)}`;
 }
@@ -215,9 +265,9 @@ async function load() {
     banner("info", "Demo mode — Airtable is not configured yet, so nothing is saved. Deploys inject the real credentials.");
     movies = [
       { id: "demo1", title: "The Grand Budapest Hotel", submittedBy: "Eddy", note: "Pure eye candy.", createdTime: "2026-01-01" },
-      { id: "demo2", title: "Spirited Away", submittedBy: "Ana", note: "", createdTime: "2026-01-02" }
+      { id: "demo2", title: "Howl's moving castle", submittedBy: "Marianna", note: "", createdTime: "2026-01-02" }
     ];
-    votesByMovie = { demo1: ["Ana", "Leo"], demo2: ["Eddy"] };
+    votesByMovie = { demo1: ["Ana", "Leo"], demo2: ["Eddy", "Marianna"] };
     render();
     return;
   }
@@ -278,10 +328,11 @@ function render() {
           <div class="meta">suggested by ${esc(m.submittedBy)}</div>
           ${m.note ? `<p class="note">${esc(m.note)}</p>` : ""}
           ${voters.length ? `<div class="voters">${voters.map(v => `<span>${esc(v)}</span>`).join("")}</div>` : ""}
+          ${extrasFor(m) ? `<div class="openhint">▸ Open the card for the poster &amp; a word from ${esc(m.submittedBy)}</div>` : ""}
         </div>`;
     }
     return `
-      <div class="movie">
+      <div class="movie${extrasFor(m) && editingId !== m.id ? " openable" : ""}" data-card="${esc(m.id)}">
         <div class="votebox">
           <div><div class="count">${voters.length}</div><div class="unit">vote${voters.length === 1 ? "" : "s"}</div></div>
           <button data-vote="${esc(m.id)}" class="${voted ? "voted" : ""}" ${voted && !removable ? "disabled" : ""}
@@ -300,6 +351,36 @@ function render() {
     btn.addEventListener("click", () => saveEdit(btn.dataset.save, btn)));
   list.querySelectorAll("[data-cancel]").forEach(btn =>
     btn.addEventListener("click", () => { editingId = null; render(); }));
+  list.querySelectorAll(".movie.openable").forEach(card =>
+    card.addEventListener("click", e => {
+      if (e.target.closest("button, input, a")) return; // voting/editing, not opening
+      openCard(card.dataset.card);
+    }));
+}
+
+function openCard(movieId) {
+  const m = movies.find(x => x.id === movieId);
+  const x = m && extrasFor(m);
+  if (!x) return;
+  const overlay = document.createElement("div");
+  overlay.className = "overlay";
+  overlay.innerHTML = `
+    <div class="modal">
+      <img class="poster" src="${esc(x.poster)}" alt="${esc(m.title)} poster">
+      <div class="intro">
+        <img class="face" src="${esc(x.intro.photo)}" alt="${esc(x.intro.name)}">
+        <div class="who">Suggested by ${esc(x.intro.name)}</div>
+        <h3>${esc(m.title)}</h3>
+        <div class="role">${esc(x.intro.role)}</div>
+        ${x.intro.text.split("\n\n").map(p => `<p>${esc(p)}</p>`).join("")}
+      </div>
+      <button class="close" aria-label="Close">✕</button>
+    </div>`;
+  const close = () => { overlay.remove(); document.removeEventListener("keydown", onKey); };
+  const onKey = e => { if (e.key === "Escape") close(); };
+  overlay.addEventListener("click", e => { if (e.target === overlay || e.target.closest(".close")) close(); });
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(overlay);
 }
 
 function requireName() {
